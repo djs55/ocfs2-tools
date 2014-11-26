@@ -117,7 +117,9 @@ static struct ocfs2_protocol_version daemon_max_proto = {
 static struct ocfs2_protocol_version fs_max_proto;
 struct ocfs2_protocol_version daemon_running_proto;
 struct ocfs2_protocol_version fs_running_proto;
+#ifdef OPENAIS_CHECKPOINTS
 struct ckpt_handle *node_handle;
+#endif
 
 void shutdown_daemon(void)
 {
@@ -707,7 +709,7 @@ static int checkpoint_to_proto_version(char *data, size_t data_len,
 
 	return 0;
 }
-
+#ifdef OPENAIS_CHECKPOINTS
 static int install_node_checkpoint(void)
 {
 	int rc;
@@ -791,6 +793,7 @@ static int install_global_checkpoint(void)
 out:
 	return rc;
 }
+#endif
 
 /*
  * Compare the cluster's locking protocol version against our maximum.
@@ -810,7 +813,7 @@ static int protocol_compatible(struct ocfs2_protocol_version *cluster,
 
 	return 1;
 }
-
+#ifdef OPENAIS_CHECKPOINTS
 static int read_global_checkpoint(void)
 {
 	int rc, seen = 0, opened = 0, retrycount = 0;
@@ -899,7 +902,7 @@ out:
 
 	return rc;
 }
-
+#endif
 static void cpg_joined(int first)
 {
 	int rv;
@@ -908,6 +911,7 @@ static void cpg_joined(int first)
 	log_debug("CPG is live, we are %s first daemon",
 		  first ? "the" : "not the");
 
+#ifdef OPENAIS_CHECKPOINTS
 	if (first)
 		rv = install_global_checkpoint();
 	else
@@ -917,7 +921,7 @@ static void cpg_joined(int first)
 		shutdown_daemon();
 		return;
 	}
-
+#endif
 	log_debug("Daemon protocol is %d.%d",
 		  daemon_running_proto.pv_major,
 		  daemon_running_proto.pv_minor);
@@ -960,18 +964,18 @@ static int loop(void)
 	if (rv < 0)
 		goto out;
 
+#ifdef OPENAIS_CHECKPOINTS
 	rv = setup_ckpt();
 	if (rv < 0)
 		goto out;
-
 	rv = install_node_checkpoint();
 	if (rv < 0)
 		goto out;
-
 	rv = setup_cpg(cpg_joined);
 	if (rv < 0)
 		goto out;
 
+#endif
 	log_debug("setup done");
 
 	for (;;) {
@@ -1010,9 +1014,11 @@ stop:
 
 	o2cb_control_close();
 	exit_dlmcontrol();
+#ifdef OPENAIS_CHECKPOINTS
 	exit_cpg();
 	drop_node_checkpoint();
 	exit_ckpt();
+#endif
 	exit_stack();
 
 out:

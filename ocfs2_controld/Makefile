@@ -4,6 +4,8 @@ include $(TOPDIR)/Preamble.make
 
 sbindir = $(root_sbindir)
 
+SBIN_PROGRAMS += ocfs2_controld.xhad
+
 ifneq ($(BUILD_OCFS2_CONTROLD),)
   ifneq ($(BUILD_CMAN_SUPPORT),)
 SBIN_PROGRAMS += ocfs2_controld.cman
@@ -44,13 +46,17 @@ UNINST_HFILES = ocfs2_controld.h
 ifneq ($(HAVE_COROSYNC),)
 DEFINES += -DHAVE_COROSYNC=1
 endif
-DAEMON_CFILES = main.c cpg.c mount.c ckpt.c dlmcontrol.c
+DAEMON_CFILES = main.c mount.c dlmcontrol.c
 
-CMAN_CFILES = cman.c
+XHAD_CFILES = xhad.c
+XHAD_DAEMON_CFILES = $(DAEMON_CFILES) $(XHAD_CFILES)
+XHAD_DAEMON_OBJS = $(subst .c,.o,$(XHAD_DAEMON_CFILES))
+
+CMAN_CFILES = cman.c cpg.c ckpt.c
 CMAN_DAEMON_CFILES = $(DAEMON_CFILES) $(CMAN_CFILES)
 CMAN_DAEMON_OBJS = $(subst .c,.o,$(CMAN_DAEMON_CFILES))
 
-PCMK_CFILES = pacemaker.c
+PCMK_CFILES = pacemaker.c cpg.c ckpt.c
 PCMK_DAEMON_CFILES = $(DAEMON_CFILES) $(PCMK_CFILES)
 PCMK_DAEMON_OBJS = $(subst .c,.o,$(PCMK_DAEMON_CFILES))
 
@@ -62,13 +68,18 @@ DIST_FILES =				\
 	$(DAEMON_CFILES)		\
 	$(PCMK_CFILES)			\
 	$(CMAN_CFILES)			\
+	$(XHAD_CFILES)                  \
 	$(TEST_CFILES)			\
 	$(UNINST_HFILES)		\
 	$(addsuffix .in,$(MANS))
+
+ocfs2_controld.xhad: $(XHAD_DAEMON_OBJS) $(LIBO2CB_DEPS)
+	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(DLMCONTROL_LIBS)
+
 ocfs2_controld.pcmk: $(PCMK_DAEMON_OBJS) $(LIBO2CB_DEPS)
 	$(LINK) $(GLIB_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) \
 		$(OPENAIS_LIBS) $(COROSYNC_LIBS) \
-		$(DLMCONTROL_LIBS) $(CRM_LIBS)
+		$(DLMCONTROL_LIBS) -lcrmcluster -lcrmcommon -lstonithd
 
 ocfs2_controld.cman: $(CMAN_DAEMON_OBJS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(OPENAIS_LIBS) \
